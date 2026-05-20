@@ -24,4 +24,4 @@ This project is a menu-driven Railway Reservation System implemented in C using:
 4. Use menu options
 
 ## 👨‍💻 Author
-(Your Name)
+(OM PRAVIN SOMA)
