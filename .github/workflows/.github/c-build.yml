@@ -1,0 +1,20 @@
+name: C Build and Run
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Compile C Program
+      run: gcc railway.c -o railway
+
+    - name: Run Program
+      run: ./railway
