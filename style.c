@@ -88,19 +88,32 @@ void dequeue(char name[]) {
 
 void bookTicket() {
     char name[50];
-    printf("Enter Name: ");
-    scanf("%s", name);
+
+    printf("Enter Full Name: ");
+
+    getchar();
+    fgets(name, sizeof(name), stdin);
+
+    // Remove newline character
+    name[strcspn(name, "\n")] = 0;
 
     if (seatCount < MAX) {
-        struct Passenger* newNode = (struct Passenger*)malloc(sizeof(struct Passenger));
+
+        struct Passenger* newNode =
+        (struct Passenger*)malloc(sizeof(struct Passenger));
+
         newNode->id = idCounter++;
         strcpy(newNode->name, name);
+
         newNode->next = head;
         head = newNode;
 
         seatCount++;
+
         printf("Ticket Booked! ID: %d\n", newNode->id);
+
     } else {
+
         enqueue(idCounter++, name);
     }
 }
