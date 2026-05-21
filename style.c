@@ -2,207 +2,199 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX 5
-#define WMAX 5
+#define MAX_SEATS 5          
+#define NAME_LEN  40
 
-struct Passenger {
-    int id;
-    char name[50];
-    struct Passenger* next;
-};
+typedef struct Passenger {
+    int  pnr;
+    char name[NAME_LEN];
+    int  age;
+    char gender;             
+    int  seatNo;            
+    struct Passenger *next;
+} Passenger;
 
-struct Stack {
-    int data[100];
-    int top;
-};
+Passenger *confirmedHead = NULL;  
+Passenger *waitFront = NULL;      
+Passenger *waitRear  = NULL;       
 
-struct Queue {
-    int ids[WMAX];
-    char names[WMAX][50];
-    int front, rear;
-};
+int seat[MAX_SEATS + 1];           
+int pnrCounter = 1000;            
+int confirmedCount = 0;
 
-struct Passenger* head = NULL;
-int seatCount = 0;
-int idCounter = 1;
+int generatePNR(void) { return ++pnrCounter; }
 
-struct Stack cancelStack;
-struct Queue waitQueue;
-
-void initStack() {
-    cancelStack.top = -1;
+int firstFreeSeat(void) {
+    int i;
+    for (i = 1; i <= MAX_SEATS; i++)
+        if (seat[i] == 0) return i;
+    return -1;                      
 }
 
-void push(int id) {
-    cancelStack.data[++cancelStack.top] = id;
+Passenger *createPassenger(char *name, int age, char gender) {
+    Passenger *p = (Passenger *) malloc(sizeof(Passenger));
+    p->pnr    = generatePNR();
+    strncpy(p->name, name, NAME_LEN - 1);
+    p->name[NAME_LEN - 1] = '\0';
+    p->age    = age;
+    p->gender = gender;
+    p->seatNo = 0;
+    p->next   = NULL;
+    return p;
 }
 
-void initQueue() {
-    waitQueue.front = waitQueue.rear = -1;
-}
-
-int isQueueFull() {
-    return (waitQueue.front == (waitQueue.rear + 1) % WMAX);
-}
-
-int isQueueEmpty() {
-    return (waitQueue.front == -1);
-}
-
-void enqueue(int id, char name[]) {
-    if (isQueueFull()) {
-        printf("Waiting list is full!\n");
-        return;
-    }
-
-    if (isQueueEmpty())
-        waitQueue.front = 0;
-
-    waitQueue.rear = (waitQueue.rear + 1) % WMAX;
-    waitQueue.ids[waitQueue.rear] = id;
-    strcpy(waitQueue.names[waitQueue.rear], name);
-
-    printf("Added to waiting list.\n");
-}
-
-void dequeue(char name[]) {
-    if (isQueueEmpty()) return;
-
-    int id = waitQueue.ids[waitQueue.front];
-    strcpy(name, waitQueue.names[waitQueue.front]);
-
-    if (waitQueue.front == waitQueue.rear)
-        waitQueue.front = waitQueue.rear = -1;
-    else
-        waitQueue.front = (waitQueue.front + 1) % WMAX;
-
-    struct Passenger* newNode = (struct Passenger*)malloc(sizeof(struct Passenger));
-    newNode->id = id;
-    strcpy(newNode->name, name);
-    newNode->next = head;
-    head = newNode;
-
-    seatCount++;
-    printf("Waiting passenger %s got confirmed seat!\n", name);
-}
-
-void bookTicket() {
-    char name[50];
-
-    printf("Enter Full Name: ");
-
-    getchar();
-    fgets(name, sizeof(name), stdin);
-
-    // Remove newline character
-    name[strcspn(name, "\n")] = 0;
-
-    if (seatCount < MAX) {
-
-        struct Passenger* newNode =
-        (struct Passenger*)malloc(sizeof(struct Passenger));
-
-        newNode->id = idCounter++;
-        strcpy(newNode->name, name);
-
-        newNode->next = head;
-        head = newNode;
-
-        seatCount++;
-
-        printf("Ticket Booked! ID: %d\n", newNode->id);
-
+void addConfirmed(Passenger *p) {
+    p->next = NULL;
+    if (confirmedHead == NULL) {
+        confirmedHead = p;
     } else {
+        Passenger *t = confirmedHead;
+        while (t->next != NULL) t = t->next;
+        t->next = p;
+    }
+    confirmedCount++;
+}
 
-        enqueue(idCounter++, name);
+void enqueueWaiting(Passenger *p) {
+    p->next = NULL;
+    if (waitRear == NULL) {
+        waitFront = waitRear = p;
+    } else {
+        waitRear->next = p;
+        waitRear = p;
     }
 }
 
-void cancelTicket() {
-    int id;
-    printf("Enter ID to cancel: ");
-    scanf("%d", &id);
+Passenger *dequeueWaiting(void) {
+    if (waitFront == NULL) return NULL;
+    Passenger *p = waitFront;
+    waitFront = waitFront->next;
+    if (waitFront == NULL) waitRear = NULL;
+    p->next = NULL;
+    return p;
+}
 
-    struct Passenger *temp = head, *prev = NULL;
+void bookTicket(void) {
+    char name[NAME_LEN], gender;
+    int  age;
 
-    while (temp != NULL) {
-        if (temp->id == id) {
-            if (prev == NULL)
-                head = temp->next;
-            else
-                prev->next = temp->next;
+    printf("\nEnter passenger name : ");
+    scanf(" %39[^\n]", name);
+    printf("Enter age            : ");
+    scanf("%d", &age);
+    printf("Enter gender (M/F)   : ");
+    scanf(" %c", &gender);
 
-            free(temp);
-            seatCount--;
+    Passenger *p = createPassenger(name, age, gender);
+    int s = firstFreeSeat();
 
-            push(id);
-            printf("Ticket Cancelled!\n");
+    if (s != -1) {                     
+        seat[s] = p->pnr;
+        p->seatNo = s;
+        addConfirmed(p);
+        printf("\n>>> Ticket CONFIRMED.\n");
+        printf("    PNR: %d | Seat No: %d\n", p->pnr, p->seatNo);
+    } else {                           
+        enqueueWaiting(p);
+        printf("\n>>> Coach full. Added to WAITING LIST.\n");
+        printf("    PNR: %d\n", p->pnr);
+    }
+}
 
-            char name[50];
-            dequeue(name);
-            return;
+void cancelTicket(void) {
+    int target;
+    printf("\nEnter PNR to cancel : ");
+    scanf("%d", &target);
+
+    Passenger *cur = confirmedHead, *prev = NULL;
+    while (cur != NULL && cur->pnr != target) {
+        prev = cur;
+        cur = cur->next;
+    }
+
+    if (cur == NULL) {
+        printf("\n>>> PNR %d not found in confirmed list.\n", target);
+        return;
+    }
+
+    int freedSeat = cur->seatNo;
+    if (prev == NULL) confirmedHead = cur->next;
+    else              prev->next = cur->next;
+    seat[freedSeat] = 0;
+    confirmedCount--;
+    printf("\n>>> PNR %d (%s) cancelled. Seat %d freed.\n",
+           cur->pnr, cur->name, freedSeat);
+    free(cur);
+
+    Passenger *next = dequeueWaiting();
+    if (next != NULL) {
+        seat[freedSeat] = next->pnr;
+        next->seatNo = freedSeat;
+        addConfirmed(next);
+        printf(">>> Waiting passenger %s (PNR %d) auto-confirmed to seat %d.\n",
+               next->name, next->pnr, freedSeat);
+    }
+}
+
+void displayConfirmed(void) {
+    printf("\n------------- CONFIRMED RESERVATION CHART -------------\n");
+    if (confirmedHead == NULL) {
+        printf("No confirmed bookings yet.\n");
+    } else {
+        printf("%-8s %-20s %-5s %-7s %-5s\n",
+               "PNR", "NAME", "AGE", "GENDER", "SEAT");
+        Passenger *t = confirmedHead;
+        while (t != NULL) {
+            printf("%-8d %-20s %-5d %-7c %-5d\n",
+                   t->pnr, t->name, t->age, t->gender, t->seatNo);
+            t = t->next;
         }
-        prev = temp;
-        temp = temp->next;
     }
-
-    printf("Passenger not found!\n");
+    printf("Seats occupied: %d / %d\n", confirmedCount, MAX_SEATS);
+    printf("-------------------------------------------------------\n");
 }
 
-void displayPassengers() {
-    struct Passenger* temp = head;
-
-    if (!temp) {
-        printf("No bookings yet.\n");
-        return;
+void displayWaiting(void) {
+    printf("\n----------------- WAITING LIST -----------------\n");
+    if (waitFront == NULL) {
+        printf("Waiting list is empty.\n");
+    } else {
+        printf("%-4s %-8s %-20s %-5s\n", "POS", "PNR", "NAME", "AGE");
+        Passenger *t = waitFront;
+        int pos = 1;
+        while (t != NULL) {
+            printf("%-4d %-8d %-20s %-5d\n", pos++, t->pnr, t->name, t->age);
+            t = t->next;
+        }
     }
-
-    printf("\n--- Booked Passengers ---\n");
-    while (temp != NULL) {
-        printf("ID: %d | Name: %s\n", temp->id, temp->name);
-        temp = temp->next;
-    }
+    printf("------------------------------------------------\n");
 }
 
-void displayWaiting() {
-    if (isQueueEmpty()) {
-        printf("No waiting list.\n");
-        return;
-    }
-
-    printf("\n--- Waiting List ---\n");
-    int i = waitQueue.front;
-
-    while (1) {
-        printf("ID: %d | Name: %s\n", waitQueue.ids[i], waitQueue.names[i]);
-        if (i == waitQueue.rear) break;
-        i = (i + 1) % WMAX;
-    }
+void menu(void) {
+    printf("\n========= RAILWAY RESERVATION SYSTEM =========\n");
+    printf("1. Book Ticket\n");
+    printf("2. Cancel Ticket\n");
+    printf("3. Display Confirmed Chart\n");
+    printf("4. Display Waiting List\n");
+    printf("5. Exit\n");
+    printf("==============================================\n");
+    printf("Enter your choice : ");
 }
 
-int main() {
+int main(void) {
     int choice;
-
-    initStack();
-    initQueue();
-
     while (1) {
-        printf("\n--- Railway Reservation System ---\n");
-        printf("1. Book Ticket\n");
-        printf("2. Cancel Ticket\n");
-        printf("3. Display Booked Tickets\n");
-        printf("4. Display Waiting List\n");
-        printf("5. Exit\n");
-        printf("Enter choice: ");
-        scanf("%d", &choice);
-
+        menu();
+        if (scanf("%d", &choice) != 1) break;
         switch (choice) {
-            case 1: bookTicket(); break;
-            case 2: cancelTicket(); break;
-            case 3: displayPassengers(); break;
-            case 4: displayWaiting(); break;
-            case 5: exit(0);
-            default: printf("Invalid choice!\n");
+            case 1: bookTicket();      break;
+            case 2: cancelTicket();    break;
+            case 3: displayConfirmed();break;
+            case 4: displayWaiting();  break;
+            case 5: printf("\nThank you for using the system. Goodbye!\n");
+                    return 0;
+            default: printf("\nInvalid choice. Try again.\n");
         }
     }
+    return 0;
 }
